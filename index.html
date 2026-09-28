@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rateio de Custos — Ability</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyChhOgm7rOHZSvovAwGZgXs8FEKdOL7MSo",
+  authDomain: "painel-rateio.firebaseapp.com",
+  projectId: "painel-rateio",
+  storageBucket: "painel-rateio.firebasestorage.app",
+  messagingSenderId: "118266567866",
+  appId: "1:118266567866:web:b80ec63b52531c451d3683"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── Expor ao window para o script principal ──────────────────────────────────
+window._fb = { db, collection, doc, setDoc, getDocs, getDoc, deleteDoc, query, orderBy, serverTimestamp };
+window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+:root{
+  --preto:#1a1a1a;--verm:#cc0000;--verm-h:#aa0000;--bg:#f2f2f2;
+  --borda:#e0e0e0;--cinza:#888;--branco:#fff;--verde:#1e7a3c;
+  --azul-ability:#0E2841;--fonte:'Segoe UI',Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--fonte);background:var(--bg);color:var(--preto);min-height:100vh;}
+
+/* HEADER */
+header{background:var(--preto);color:var(--branco);padding:16px 28px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo-bar{width:4px;height:30px;background:var(--verm);border-radius:2px;flex-shrink:0;}
+header h1{font-size:16px;font-weight:700;}
+header span{font-size:11px;color:#aaa;}
+.fb-status{margin-left:auto;font-size:11px;display:flex;align-items:center;gap:6px;}
+.fb-dot{width:8px;height:8px;border-radius:50%;background:#888;transition:background .3s;}
+.fb-dot.ok{background:#4caf50;}
+.fb-dot.err{background:#f44336;}
+
+/* TABS */
+.tabs-wrap{background:var(--preto);padding:0 28px;border-top:1px solid #333;overflow-x:auto;}
+.tabs{display:flex;min-width:max-content;}
+.tab-btn{padding:11px 18px;background:none;border:none;color:#999;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--fonte);border-bottom:3px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap;}
+.tab-btn:hover{color:#fff;}
+.tab-btn.ativa{color:#fff;border-bottom-color:var(--verm);}
+
+/* MAIN */
+main{max-width:1040px;margin:0 auto;padding:24px 18px 64px;}
+
+/* CARD */
+.card{background:var(--branco);border:1px solid var(--borda);border-radius:8px;padding:22px 26px;margin-bottom:16px;}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--cinza);margin-bottom:12px;padding-bottom:9px;border-bottom:1px solid var(--borda);}
+
+/* UPLOAD */
+.upload-area{border:2px dashed #ccc;border-radius:8px;padding:32px;text-align:center;cursor:pointer;transition:.2s;position:relative;}
+.upload-area:hover,.upload-area.dragover{border-color:var(--verm);background:#fff5f5;}
+.upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.upload-icon{font-size:30px;margin-bottom:8px;}
+.upload-area p{color:#555;font-size:13px;}
+.upload-area strong{color:var(--verm);}
+.file-tag{display:inline-flex;align-items:center;gap:6px;background:#f0fff5;border:1px solid #b3e6c5;color:var(--verde);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;margin-top:10px;}
+
+/* CONFIG */
+.config-row{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
+.cf{display:flex;flex-direction:column;gap:5px;}
+.cf label{font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;}
+.cf input,.cf select{padding:9px 12px;border:1.5px solid var(--borda);border-radius:6px;font-size:13px;font-family:var(--fonte);color:var(--preto);min-width:140px;transition:border-color .2s;}
+.cf input:focus,.cf select:focus{outline:none;border-color:var(--verm);}
+
+/* BOTÕES */
+.btn{padding:9px 22px;background:var(--verm);color:var(--branco);border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;font-family:var(--fonte);white-space:nowrap;}
+.btn:hover{background:var(--verm-h);}
+.btn:disabled{background:#bbb;cursor:not-allowed;}
+.btn-azul{background:var(--azul-ability);}
+.btn-azul:hover{background:#0a1e33;}
+.btn-ghost{padding:8px 16px;background:transparent;color:var(--preto);border:1.5px solid var(--borda);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--fonte);transition:.15s;}
+.btn-ghost:hover{border-color:var(--preto);}
+.btn-sm{padding:5px 12px;background:var(--preto);color:var(--branco);border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--fonte);}
+.btn-sm:hover{background:#333;}
+.btn-del-sm{padding:4px 10px;background:transparent;color:#ccc;border:1px solid #ddd;border-radius:5px;font-size:11px;cursor:pointer;font-family:var(--fonte);}
+.btn-del-sm:hover{color:var(--verm);border-color:var(--verm);}
+
+/* STATS */
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+.stat{flex:1;min-width:120px;background:var(--branco);border:1px solid var(--borda);border-radius:8px;padding:14px 16px;text-align:center;}
+.stat .v{font-size:22px;font-weight:800;line-height:1.1;}
+.stat .v.red{color:var(--verm);}
+.stat .l{font-size:10px;color:var(--cinza);margin-top:3px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
+
+/* TABELA */
+.table-wrap{overflow-x:auto;border-radius:7px;border:1px solid var(--borda);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead tr{background:var(--preto);color:var(--branco);}
+thead th{padding:10px 13px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+th.r,td.r{text-align:right;}
+tbody tr{border-bottom:1px solid var(--borda);transition:background .1s;}
+tbody tr:hover{background:#fafafa;}
+tbody tr:last-child{border-bottom:none;}
+td{padding:9px 13px;vertical-align:middle;}
+td.val{color:var(--verde);font-weight:700;}
+tfoot tr{background:var(--verm);color:var(--branco);}
+tfoot td{padding:10px 13px;font-weight:800;font-size:12px;}
+
+/* BADGE */
+.badge{display:inline-block;background:#f0f0f0;color:#444;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;font-family:monospace;}
+.badge.A{background:#e8f5e9;color:#2e7d32;}
+.badge.F{background:#fff8e1;color:#f57f17;}
+.badge.D{background:#fce4ec;color:#c62828;}
+
+/* BUSCA ROW */
+.busca-row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.busca-row input{flex:1;min-width:180px;padding:8px 12px;border:1.5px solid var(--borda);border-radius:6px;font-size:12px;font-family:var(--fonte);}
+.busca-row input:focus{outline:none;border-color:var(--preto);}
+
+/* GERENCIAR CC */
+.ger-cc-lista{display:flex;flex-direction:column;gap:5px;margin-top:8px;max-height:360px;overflow-y:auto;}
+.ger-cc-item{display:grid;grid-template-columns:32px 86px 1fr 86px 86px;gap:8px;align-items:center;padding:7px 11px;border:1.5px solid var(--borda);border-radius:7px;background:var(--branco);}
+.ger-cc-item.inativo{opacity:.4;background:#f8f8f8;}
+.ger-cc-item input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:var(--verm);}
+.cc-cod{font-family:monospace;font-size:11px;font-weight:700;color:#444;background:#f0f0f0;border-radius:4px;padding:2px 6px;text-align:center;}
+.cc-nome-cell{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cc-qtd-cell{font-size:12px;color:var(--cinza);text-align:center;}
+.ger-cc-pct{width:76px;padding:5px 7px;border:1.5px solid var(--borda);border-radius:5px;font-size:13px;font-weight:700;text-align:right;font-family:var(--fonte);color:var(--azul-ability);}
+.ger-cc-pct:focus{outline:none;border-color:var(--verm);}
+.ger-cc-pct:disabled{background:#f0f0f0;color:#bbb;}
+.pct-bar-wrap{height:3px;background:#eee;border-radius:2px;margin-top:2px;}
+.pct-bar{height:3px;background:var(--verm);border-radius:2px;transition:width .3s;}
+.ger-acoes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center;}
+.ger-total-pct{font-size:13px;font-weight:800;margin-left:auto;}
+.pct-alerta{padding:9px 14px;border-radius:6px;font-size:12px;font-weight:600;display:none;margin-bottom:10px;}
+.pct-alerta.warn{background:#fffbf0;border:1px solid #ffe082;color:#b45a00;}
+.pct-alerta.ok{background:#f0fff5;border:1px solid #b3e6c5;color:#1a6b38;}
+.pct-alerta.err{background:#fff0f0;border:1px solid #ffcccc;color:#cc0000;}
+
+/* VERIFICAÇÕES */
+.verif-bloco{padding:10px 14px;border-radius:7px;margin-bottom:12px;display:none;}
+.verif-item{padding:4px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:12px;}
+.verif-item:last-child{border-bottom:none;}
+
+/* HISTÓRICO */
+.hist-card{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border:1px solid var(--borda);border-radius:8px;background:var(--branco);flex-wrap:wrap;gap:8px;transition:border-color .15s;}
+.hist-card:hover{border-color:#aaa;}
+.hist-card .hc-desc{font-weight:700;font-size:13px;}
+.hist-card .hc-meta{font-size:11px;color:var(--cinza);margin-top:2px;}
+.hist-card .hc-valor{font-size:16px;font-weight:800;color:var(--verm);}
+.hist-card .hc-acoes{display:flex;gap:6px;}
+.hist-lista{display:flex;flex-direction:column;gap:8px;}
+.hist-empty{text-align:center;padding:32px;color:#bbb;font-size:13px;}
+
+/* DRAWER */
+.drawer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;}
+.drawer-overlay.open{display:flex;align-items:flex-end;}
+.drawer{background:var(--branco);width:100%;max-height:80vh;border-radius:14px 14px 0 0;padding:22px 22px 28px;overflow-y:auto;animation:slideUp .2s ease;}
+@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.drawer-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.drawer-header h3{font-size:14px;font-weight:800;}
+.drawer-close{background:#eee;border:none;border-radius:50%;width:28px;height:28px;font-size:15px;cursor:pointer;}
+.colab-item{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid var(--borda);border-radius:7px;font-size:12px;flex-wrap:wrap;gap:6px;}
+.colab-item .cn{font-weight:700;font-size:13px;}
+.colab-item .ci{color:var(--cinza);font-size:11px;}
+.colab-rateio-item{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid var(--borda);border-radius:6px;font-size:12px;gap:8px;flex-wrap:wrap;}
+.colab-rateio-item .cn{font-weight:700;font-size:13px;}
+.colab-rateio-item .ci{color:var(--cinza);font-size:11px;}
+.colab-rateio-item .cv{font-weight:800;color:var(--verde);font-size:13px;white-space:nowrap;}
+
+/* MANUAL LINHAS */
+.manual-linha{display:grid;grid-template-columns:120px 1fr 95px auto;gap:7px;align-items:center;}
+.manual-linha input{padding:8px 10px;border:1.5px solid var(--borda);border-radius:6px;font-size:12px;font-family:var(--fonte);width:100%;}
+.manual-linha input:focus{outline:none;border-color:var(--verm);}
+.manual-resultado{background:var(--preto);color:var(--branco);border-radius:8px;padding:16px 20px;margin-top:14px;display:none;}
+.manual-resultado .tv{font-size:26px;font-weight:800;color:var(--verm);}
+.btn-del{background:none;border:none;color:#ccc;font-size:17px;cursor:pointer;padding:0 3px;}
+.btn-del:hover{color:var(--verm);}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--preto);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;max-width:320px;}
+.toast.show{opacity:1;}
+.toast.ok{border-left:4px solid #4caf50;}
+.toast.err{border-left:4px solid var(--verm);}
+.toast.info{border-left:4px solid #2196f3;}
+
+/* MISC */
+.alert{padding:9px 14px;border-radius:6px;font-size:12px;margin-bottom:12px;display:none;}
+.alert.ok{background:#f0fff5;border:1px solid #b3e6c5;color:#1a6b38;}
+.alert.err{background:#fff0f0;border:1px solid #ffcccc;color:#cc0000;}
+.empty{text-align:center;padding:36px;color:#bbb;}
+.empty .ei{font-size:34px;margin-bottom:8px;}
+.empty p{font-size:13px;}
+.secao{display:none;}
+.secao.ativa{display:block;}
+.col-hdrs-prop{display:grid;grid-template-columns:1fr 155px auto;gap:8px;margin-bottom:6px;padding:0 2px;}
+.col-hdrs-prop span{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;}
+.item-linha{display:grid;grid-template-columns:1fr 155px auto;gap:7px;align-items:center;}
+.item-linha input{padding:8px 10px;border:1.5px solid var(--borda);border-radius:6px;font-size:12px;font-family:var(--fonte);width:100%;}
+.item-linha input:focus{outline:none;border-color:var(--verm);}
+.item-linha input[type=number]{text-align:right;}
+.prop-tabela-wrap{overflow-x:auto;}
+.prop-tabela-wrap table{border-collapse:collapse;font-size:12px;min-width:500px;width:100%;}
+.prop-tabela-wrap thead tr{background:var(--preto);color:var(--branco);}
+.prop-tabela-wrap thead th{padding:9px 11px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;white-space:nowrap;}
+.prop-tabela-wrap thead th:first-child,.prop-tabela-wrap thead th:nth-child(2){text-align:left;}
+.prop-tabela-wrap tbody tr{border-bottom:1px solid var(--borda);}
+.prop-tabela-wrap td{padding:8px 11px;text-align:right;white-space:nowrap;}
+.prop-tabela-wrap td:first-child,.prop-tabela-wrap td:nth-child(2){text-align:left;}
+.prop-tabela-wrap tfoot tr{background:var(--verm);color:var(--branco);}
+.prop-tabela-wrap tfoot td{padding:9px 11px;font-weight:800;text-align:right;}
+.prop-tabela-wrap tfoot td:first-child,.prop-tabela-wrap tfoot td:nth-child(2){text-align:left;}
+.pct-pill{display:inline-block;background:#f0f0f0;border-radius:10px;padding:1px 6px;font-size:10px;color:#666;margin-left:3px;}
+
+@media(max-width:600px){
+  main{padding:14px 10px 48px;}
+  .card{padding:16px 12px;}
+  .config-row{flex-direction:column;}
+  .ger-cc-item{grid-template-columns:28px 70px 1fr 65px 70px;}
+  .manual-linha{grid-template-columns:95px 1fr 75px auto;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-bar"></div>
+  <div><h1>Rateio de Custos — Ability</h1><span>Segurança do Trabalho</span></div>
+  <div class="fb-status"><div class="fb-dot" id="fbDot"></div><span id="fbTxt" style="color:#888">Conectando...</span></div>
+</header>
+
+<div class="tabs-wrap">
+  <div class="tabs">
+    <button class="tab-btn ativa" onclick="trocarAba('upload')" id="tab-upload">📂 Upload</button>
+    <button class="tab-btn" onclick="trocarAba('ger')" id="tab-ger">🎛️ Gerenciar Rateio</button>
+    <button class="tab-btn" onclick="trocarAba('prop')" id="tab-prop">⚖️ Rateio Proporcional</button>
+    <button class="tab-btn" onclick="trocarAba('busca')" id="tab-busca">🔍 Buscar Colaborador</button>
+    <button class="tab-btn" onclick="trocarAba('manual')" id="tab-manual">✏️ Entrada Manual</button>
+    <button class="tab-btn" onclick="trocarAba('historico')" id="tab-historico">📅 Histórico</button>
+  </div>
+</div>
+
+<main>
+
+<!-- ══════════ ABA UPLOAD ══════════ -->
+<div class="secao ativa" id="sec-upload">
+  <div class="card">
+    <div class="card-title">1. Carregar planilha de colaboradores</div>
+    <div class="upload-area" id="uploadArea">
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
+      <div class="upload-icon">📂</div>
+      <p>Arraste o arquivo ou <strong>clique para selecionar</strong></p>
+      <p style="font-size:11px;color:#aaa;margin-top:4px">Colunas: DEPT SETOR · Nome_setor · SIT · NOME · RE · CARGO</p>
+      <div id="fileName"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">2. Configurar</div>
+    <div class="config-row">
+      <div class="cf"><label>Valor/colaborador (R$)</label><input type="number" id="valorUnit" value="1.28" step="0.01" min="0"></div>
+      <div class="cf"><label>Situações</label>
+        <select id="filtroSit">
+          <option value="A">Somente Ativos (A)</option>
+          <option value="AF">Ativos + Férias (A/F)</option>
+          <option value="AFD">Todos (A/F/D)</option>
+        </select>
+      </div>
+      <div class="cf"><label>Mês de referência</label><input type="month" id="mesRef"></div>
+      <button class="btn" id="btnCalc" onclick="calcular()" disabled>Calcular rateio</button>
+    </div>
+  </div>
+  <div class="alert" id="alerta"></div>
+  <div id="resultado" style="display:none">
+    <div class="stats">
+      <div class="stat"><div class="v" id="sTotal">0</div><div class="l">Colaboradores</div></div>
+      <div class="stat"><div class="v" id="sCentros">0</div><div class="l">Centros de custo</div></div>
+      <div class="stat"><div class="v red" id="sValor">R$ 0,00</div><div class="l">Total</div></div>
+    </div>
+    <div class="card" style="padding:16px 20px">
+      <div class="busca-row">
+        <input type="text" id="buscaTabela" placeholder="Buscar por código ou nome..." oninput="filtrarTabela()">
+        <button class="btn-ghost" onclick="exportarExcel()">⬇ Excel</button>
+        <button class="btn-ghost" onclick="exportarCSV()">⬇ CSV</button>
+        <button class="btn btn-azul" onclick="exportarModeloAbility(dadosRateio)" style="font-size:12px;padding:8px 14px">📥 Modelo Ability</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Cód.</th><th>Nome do Setor</th><th class="r">Qtd.</th><th class="r">Valor (R$)</th><th></th></tr></thead>
+          <tbody id="tBody"></tbody>
+          <tfoot id="tFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ABA GERENCIAR ══════════ -->
+<div class="secao" id="sec-ger">
+  <div class="card">
+    <div class="card-title">1. Identificação do rateio</div>
+    <div class="config-row">
+      <div class="cf" style="flex:1"><label>Descrição</label><input type="text" id="gerDesc" placeholder="Ex: Exames Ocupacionais — Ago/2025" style="min-width:unset;width:100%"></div>
+      <div class="cf"><label>Valor total (R$)</label><input type="number" id="gerValorTotal" value="" min="0" step="0.01" placeholder="0,00" oninput="recalcGerBar()"></div>
+      <div class="cf"><label>Mês</label><input type="month" id="gerMes"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">2. Centros de custo</div>
+    <div id="ger-sem-dados" style="font-size:13px;color:#aa6600;padding:10px 14px;background:#fffbf0;border:1px solid #f5d080;border-radius:6px;margin-bottom:10px">
+      ⚠️ Carregue uma planilha na aba <strong>Upload</strong> primeiro.
+    </div>
+    <div id="ger-com-dados" style="display:none">
+      <div class="ger-acoes">
+        <button class="btn-ghost" onclick="gerSelecionarTodos(true)">✔ Todos</button>
+        <button class="btn-ghost" onclick="gerSelecionarTodos(false)">✕ Nenhum</button>
+        <button class="btn-ghost" onclick="gerIgualarPct()">= Igualar %</button>
+        <button class="btn-ghost" onclick="gerProporcional()">⚖️ Proporcional</button>
+        <div class="ger-total-pct">Total: <span id="gerTotalPct" style="color:var(--verm)">0%</span></div>
+      </div>
+      <div class="pct-alerta" id="gerPctAlerta"></div>
+      <div style="display:grid;grid-template-columns:32px 86px 1fr 86px 86px;gap:8px;padding:0 11px;margin-bottom:4px">
+        <span></span>
+        <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase">Cód.</span>
+        <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase">Nome</span>
+        <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;text-align:center">Qtd.</span>
+        <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;text-align:right">%</span>
+      </div>
+      <div class="ger-cc-lista" id="gerCCLista"></div>
+      <div style="margin-top:8px;padding:0 2px"><div class="pct-bar-wrap" style="height:5px"><div class="pct-bar" id="gerTotalBar" style="width:0%"></div></div></div>
+    </div>
+  </div>
+
+  <div id="gerVerificacoes" style="display:none;margin-bottom:12px"></div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:16px;flex-wrap:wrap">
+    <button class="btn" onclick="calcularGer()" style="padding:11px 32px">🎛️ Verificar e calcular</button>
+  </div>
+
+  <div id="gerResultado" style="display:none">
+    <div class="stats" id="gerStats"></div>
+    <div class="card" style="padding:16px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:13px;font-weight:800" id="gerResultDesc">—</div>
+          <div style="font-size:11px;color:#888;margin-top:2px">Clique em uma linha para ver os colaboradores</div>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn btn-azul" onclick="exportarModeloAbility(gerResultDados.map(r=>({dept:r.dept,nome:r.nome,valor:r.valorCC})))" style="font-size:12px;padding:8px 14px">📥 Modelo Ability</button>
+          <button class="btn-ghost" onclick="exportarGerCSV()">⬇ CSV</button>
+          <button class="btn" onclick="salvarRateioFirebase()" style="background:#1e7a3c;font-size:12px;padding:8px 14px">💾 Salvar no histórico</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Cód.</th><th>Nome</th><th class="r">Qtd.</th><th class="r">%</th><th class="r">Valor (R$)</th><th class="r">R$/Colab</th><th></th></tr></thead>
+          <tbody id="gerTBody"></tbody>
+          <tfoot id="gerTFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ABA PROPORCIONAL ══════════ -->
+<div class="secao" id="sec-prop">
+  <div class="card">
+    <div class="card-title">1. Itens de custo</div>
+    <p style="font-size:12px;color:#555;margin-bottom:12px">Cada item será distribuído proporcionalmente pela quantidade de colaboradores de cada centro.</p>
+    <div class="col-hdrs-prop"><span>Descrição do item</span><span style="text-align:right">Valor total (R$)</span><span></span></div>
+    <div id="itemLinhas" style="display:flex;flex-direction:column;gap:7px;"></div>
+    <button class="btn-ghost" onclick="addItem()" style="margin-top:10px;width:100%">+ Adicionar item</button>
+  </div>
+  <div class="card">
+    <div class="card-title">2. Fonte dos centros</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn-ghost" id="fBtn-planilha" onclick="selecionarFonte('planilha')" style="border-color:var(--verm);color:var(--verm)">📂 Da planilha carregada</button>
+      <button class="btn-ghost" id="fBtn-digitar" onclick="selecionarFonte('digitar')">✏️ Digitar manualmente</button>
+    </div>
+    <div id="fonte-planilha"><div id="prop-planilha-info" style="font-size:12px;color:#555;padding:9px 13px;background:#f8f8f8;border-radius:6px;border:1px solid var(--borda)">Carregue a planilha na aba Upload primeiro.</div></div>
+    <div id="fonte-digitar" style="display:none">
+      <div style="display:grid;grid-template-columns:120px 1fr 105px 30px;gap:7px;padding:0 2px;margin-bottom:6px">
+        <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase">Cód.</span>
+        <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase">Nome</span>
+        <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;text-align:center">Qtd.</span>
+        <span></span>
+      </div>
+      <div id="propCCLinhas" style="display:flex;flex-direction:column;gap:7px;"></div>
+      <button class="btn-ghost" onclick="addPropCC()" style="margin-top:9px;width:100%">+ Adicionar centro</button>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+    <button class="btn" onclick="calcularProp()" style="padding:11px 32px">⚖️ Calcular</button>
+  </div>
+  <div id="propResultado" style="display:none">
+    <div class="stats" id="propStats"></div>
+    <div class="card" style="padding:16px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:13px;font-weight:700">Distribuição por centro</div>
+        <div style="display:flex;gap:7px"><button class="btn-ghost" onclick="exportarPropExcel()">⬇ Excel</button><button class="btn-ghost" onclick="exportarPropCSV()">⬇ CSV</button></div>
+      </div>
+      <div class="prop-tabela-wrap" id="propTabelaWrap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ABA BUSCA ══════════ -->
+<div class="secao" id="sec-busca">
+  <div class="card">
+    <div class="card-title">Buscar colaborador por nome ou matrícula</div>
+    <p style="font-size:12px;color:#555;margin-bottom:12px">Mostra o centro de custo, cargo, situação e valor no rateio.</p>
+    <div class="busca-row">
+      <input type="text" id="inputBusca" placeholder="Nome ou matrícula..." oninput="buscarColab()" style="font-size:14px;padding:11px 13px">
+    </div>
+    <div id="buscaInfo" style="font-size:11px;color:#aaa;margin-top:6px"></div>
+    <div id="buscaResult" style="display:flex;flex-direction:column;gap:9px;margin-top:12px;max-height:440px;overflow-y:auto">
+      <div class="empty"><div class="ei">🔍</div><p>Carregue a planilha na aba Upload primeiro.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ABA MANUAL ══════════ -->
+<div class="secao" id="sec-manual">
+  <div class="card">
+    <div class="card-title">Configurar</div>
+    <div class="config-row">
+      <div class="cf"><label>Valor/colaborador (R$)</label><input type="number" id="mValor" value="1.28" step="0.01" min="0" oninput="calcularManual()"></div>
+      <div class="cf"><label>Mês</label><input type="month" id="mMes"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Centros de custo</div>
+    <div style="display:grid;grid-template-columns:120px 1fr 95px auto;gap:7px;padding:0 2px;margin-bottom:6px">
+      <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase">Cód.</span>
+      <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase">Nome</span>
+      <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;text-align:center">Qtd.</span>
+      <span></span>
+    </div>
+    <div id="manualLinhas" style="display:flex;flex-direction:column;gap:7px;"></div>
+    <button class="btn-ghost" onclick="addLinha()" style="margin-top:10px;width:100%">+ Adicionar centro</button>
+    <div class="manual-resultado" id="manualRes">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div><div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Total a ratear</div><div class="tv" id="mTotalVal">R$ 0,00</div></div>
+        <div style="text-align:right"><div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Colaboradores</div><div style="font-size:20px;font-weight:800" id="mTotalQtd">0</div></div>
+      </div>
+      <div style="margin-top:12px;overflow-x:auto">
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <thead><tr style="border-bottom:1px solid #444">
+            <th style="padding:5px 7px;text-align:left;color:#aaa;font-weight:600;font-size:10px;text-transform:uppercase">Cód.</th>
+            <th style="padding:5px 7px;text-align:left;color:#aaa;font-weight:600;font-size:10px;text-transform:uppercase">Setor</th>
+            <th style="padding:5px 7px;text-align:right;color:#aaa;font-weight:600;font-size:10px;text-transform:uppercase">Qtd</th>
+            <th style="padding:5px 7px;text-align:right;color:#aaa;font-weight:600;font-size:10px;text-transform:uppercase">Valor</th>
+          </tr></thead>
+          <tbody id="mTabBody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:7px;justify-content:flex-end">
+        <button class="btn-ghost" onclick="exportarManualExcel()" style="color:#fff;border-color:#555">⬇ Excel</button>
+        <button class="btn-ghost" onclick="exportarManualCSV()" style="color:#fff;border-color:#555">⬇ CSV</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ABA HISTÓRICO ══════════ -->
+<div class="secao" id="sec-historico">
+  <div class="card">
+    <div class="card-title">Histórico de rateios salvos</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <input type="month" id="histFiltroMes" oninput="filtrarHistorico()" style="padding:8px 11px;border:1.5px solid var(--borda);border-radius:6px;font-size:13px;font-family:var(--fonte)">
+      <button class="btn-ghost" onclick="document.getElementById('histFiltroMes').value='';filtrarHistorico()">Limpar filtro</button>
+      <button class="btn-ghost" onclick="carregarHistorico()" style="margin-left:auto">🔄 Atualizar</button>
+    </div>
+    <div id="histLista" class="hist-lista">
+      <div class="hist-empty">⏳ Carregando histórico...</div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- DRAWER UPLOAD -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="fecharDrawer(event)">
+  <div class="drawer">
+    <div class="drawer-header">
+      <div><div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Centro de Custo</div><h3 id="drawerTitulo">—</h3></div>
+      <button class="drawer-close" onclick="document.getElementById('drawerOverlay').classList.remove('open');document.body.style.overflow=''">✕</button>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="stat" style="flex:1;min-width:90px;padding:10px 12px"><div class="v" style="font-size:18px" id="drawerQtd">0</div><div class="l">Colaboradores</div></div>
+      <div class="stat" style="flex:1;min-width:90px;padding:10px 12px"><div class="v red" style="font-size:18px" id="drawerValor">R$ 0,00</div><div class="l">Valor rateio</div></div>
+    </div>
+    <div class="busca-row"><input type="text" id="drawerBusca" placeholder="Filtrar colaboradores..." oninput="filtrarDrawer()" style="font-size:12px"></div>
+    <div class="colab-list" id="drawerLista" style="display:flex;flex-direction:column;gap:7px;margin-top:10px;max-height:320px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- DRAWER GERENCIAR -->
+<div class="drawer-overlay" id="gerDrawerOverlay" onclick="fecharGerDrawer(event)">
+  <div class="drawer">
+    <div class="drawer-header">
+      <div><div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Detalhe por colaborador</div><h3 id="gerDrawerTitulo">—</h3></div>
+      <button class="drawer-close" onclick="fecharGerDrawer()">✕</button>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="stat" style="flex:1;min-width:80px;padding:9px 11px"><div class="v" style="font-size:16px" id="gdQtd">0</div><div class="l">Colaboradores</div></div>
+      <div class="stat" style="flex:1;min-width:80px;padding:9px 11px"><div class="v red" style="font-size:16px" id="gdValorCC">R$ 0,00</div><div class="l">Total centro</div></div>
+      <div class="stat" style="flex:1;min-width:80px;padding:9px 11px"><div class="v" style="font-size:16px;color:var(--verde)" id="gdValorColab">R$ 0,00</div><div class="l">Por colaborador</div></div>
+    </div>
+    <div class="busca-row"><input type="text" id="gdBusca" placeholder="Filtrar..." oninput="filtrarGdDrawer()" style="font-size:12px"></div>
+    <div id="gdLista" style="display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:300px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Estado global ─────────────────────────────────────────────────────────────
+let dadosBrutos=[], dadosRateio=[], drawerDados=[], valorAtual=1.28;
+let gerDados=[], gerResultDados=[], gdDrawerDados=[];
+let propFonte='planilha', propDados={};
+let histTodos=[];
+let fbReady=false;
+
+// ── Firebase ──────────────────────────────────────────────────────────────────
+window.addEventListener('firebase-ready', ()=>{
+  fbReady=true;
+  document.getElementById('fbDot').classList.add('ok');
+  document.getElementById('fbTxt').textContent='Firebase conectado';
+  document.getElementById('fbTxt').style.color='#4caf50';
+  carregarHistorico();
+  carregarConfigs();
+});
+setTimeout(()=>{
+  if(!fbReady){
+    document.getElementById('fbDot').classList.add('err');
+    document.getElementById('fbTxt').textContent='Sem conexão';
+    document.getElementById('fbTxt').style.color='#f44336';
+  }
+},8000);
+
+// ── Datas default ─────────────────────────────────────────────────────────────
+const hoje=new Date();
+const mesStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');
+['mesRef','gerMes','mMes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=mesStr; });
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function trocarAba(id){
+  document.querySelectorAll('.secao').forEach(s=>s.classList.remove('ativa'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('ativa'));
+  document.getElementById('sec-'+id).classList.add('ativa');
+  document.getElementById('tab-'+id).classList.add('ativa');
+  if(id==='manual' && !document.querySelectorAll('.manual-linha').length){addLinha();addLinha();addLinha();}
+  if(id==='prop' && !document.querySelectorAll('.item-linha').length){addItem();addItem();initProp();}
+  if(id==='ger') initGer();
+  if(id==='historico') carregarHistorico();
+  salvarConfigs();
+}
+
+// ── UPLOAD ────────────────────────────────────────────────────────────────────
+const ua=document.getElementById('uploadArea');
+ua.addEventListener('dragover',e=>{e.preventDefault();ua.classList.add('dragover');});
+ua.addEventListener('dragleave',()=>ua.classList.remove('dragover'));
+ua.addEventListener('drop',e=>{e.preventDefault();ua.classList.remove('dragover');processarArq(e.dataTransfer.files[0]);});
+document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])processarArq(e.target.files[0]);});
+
+function processarArq(file){
+  alerta('','');
+  document.getElementById('resultado').style.display='none';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const json=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!json.length) throw new Error('Planilha vazia.');
+      const ch=Object.keys(json[0]);
+      const cD=ch.find(k=>k.replace(/\s/g,'').toUpperCase().includes('DEPTSETOR')||k.toUpperCase().includes('DEPT'));
+      const cN=ch.find(k=>k.toLowerCase().includes('nome_setor')||k.toLowerCase().includes('nome setor'));
+      const cS=ch.find(k=>k.trim().toUpperCase()==='SIT'||k.toLowerCase().includes('situac'));
+      const cC=ch.find(k=>k.trim().toUpperCase()==='NOME');
+      const cR=ch.find(k=>k.trim().toUpperCase()==='RE');
+      const cG=ch.find(k=>k.trim().toUpperCase()==='CARGO');
+      if(!cD||!cS) throw new Error('Colunas obrigatórias não encontradas (DEPT SETOR, SIT).');
+      dadosBrutos=json.map(r=>({
+        dept:String(r[cD]||'').trim(), nome:cN?String(r[cN]||'').trim():'',
+        sit:String(r[cS]||'').trim().toUpperCase(),
+        colab:cC?String(r[cC]||'').trim():'', re:cR?String(r[cR]||'').trim():'',
+        cargo:cG?String(r[cG]||'').trim():'',
+      })).filter(r=>r.dept);
+      document.getElementById('fileName').innerHTML=`<div class="file-tag">✔ ${file.name} · ${dadosBrutos.length} registros</div>`;
+      document.getElementById('btnCalc').disabled=false;
+      alerta(`${dadosBrutos.length} colaboradores carregados.`,'ok');
+    }catch(err){alerta('Erro: '+err.message,'err');document.getElementById('btnCalc').disabled=true;}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function calcular(){
+  valorAtual=parseFloat(document.getElementById('valorUnit').value)||1.28;
+  const sits={A:['A'],AF:['A','F'],AFD:['A','F','D']}[document.getElementById('filtroSit').value];
+  const filtrados=dadosBrutos.filter(r=>sits.includes(r.sit));
+  const mapa={};
+  filtrados.forEach(r=>{
+    if(!mapa[r.dept]) mapa[r.dept]={dept:r.dept,nome:r.nome,qtd:0,colabs:[]};
+    mapa[r.dept].qtd++; mapa[r.dept].colabs.push(r);
+    if(!mapa[r.dept].nome&&r.nome) mapa[r.dept].nome=r.nome;
+  });
+  dadosRateio=Object.values(mapa).sort((a,b)=>Number(a.dept)-Number(b.dept)||a.dept.localeCompare(b.dept)).map(r=>({...r,valor:r.qtd*valorAtual}));
+  const tq=dadosRateio.reduce((s,r)=>s+r.qtd,0), tv=dadosRateio.reduce((s,r)=>s+r.valor,0);
+  document.getElementById('sTotal').textContent=tq.toLocaleString('pt-BR');
+  document.getElementById('sCentros').textContent=dadosRateio.length;
+  document.getElementById('sValor').textContent=brl(tv);
+  renderTabela(dadosRateio,tq,tv);
+  document.getElementById('resultado').style.display='block';
+  document.getElementById('resultado').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderTabela(dados,tq,tv){
+  document.getElementById('tBody').innerHTML=dados.length?dados.map(r=>`
+    <tr onclick="abrirDrawer('${esc(r.dept)}')">
+      <td><span class="badge">${esc(r.dept)}</span></td>
+      <td>${esc(r.nome||'—')}</td>
+      <td class="r">${r.qtd.toLocaleString('pt-BR')}</td>
+      <td class="r val">${brl(r.valor)}</td>
+      <td><button class="btn-sm" onclick="event.stopPropagation();abrirDrawer('${esc(r.dept)}')">Ver</button></td>
+    </tr>`).join(''):`<tr><td colspan="5"><div class="empty"><div class="ei">🔍</div><p>Nenhum resultado.</p></div></td></tr>`;
+  document.getElementById('tFoot').innerHTML=`<tr><td colspan="2">TOTAL GERAL</td><td class="r">${(tq||0).toLocaleString('pt-BR')}</td><td class="r">${brl(tv||0)}</td><td></td></tr>`;
+}
+
+function filtrarTabela(){
+  const q=document.getElementById('buscaTabela').value.toLowerCase();
+  const f=dadosRateio.filter(r=>r.dept.toLowerCase().includes(q)||r.nome.toLowerCase().includes(q));
+  renderTabela(f,f.reduce((s,r)=>s+r.qtd,0),f.reduce((s,r)=>s+r.valor,0));
+}
+
+// ── DRAWER UPLOAD ─────────────────────────────────────────────────────────────
+function abrirDrawer(dept){
+  const cc=dadosRateio.find(r=>r.dept===dept); if(!cc)return;
+  drawerDados=cc.colabs||[];
+  document.getElementById('drawerTitulo').textContent=`${cc.dept} — ${cc.nome||'Setor'}`;
+  document.getElementById('drawerQtd').textContent=cc.qtd.toLocaleString('pt-BR');
+  document.getElementById('drawerValor').textContent=brl(cc.valor);
+  document.getElementById('drawerBusca').value='';
+  renderDrawerLista(drawerDados);
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function fecharDrawer(e){ if(e&&e.target!==document.getElementById('drawerOverlay'))return; document.getElementById('drawerOverlay').classList.remove('open'); document.body.style.overflow=''; }
+function renderDrawerLista(lista){
+  document.getElementById('drawerLista').innerHTML=lista.length?lista.map(c=>`
+    <div class="colab-item">
+      <div><div class="cn">${esc(c.colab||'—')}</div><div class="ci">${c.re?'Mat. '+esc(c.re)+' · ':''} ${esc(c.cargo||'')}</div></div>
+      <span class="badge ${c.sit}">${c.sit}</span>
+    </div>`).join(''):'<div class="empty"><p>Nenhum colaborador.</p></div>';
+}
+function filtrarDrawer(){
+  const q=document.getElementById('drawerBusca').value.toLowerCase();
+  renderDrawerLista(drawerDados.filter(c=>(c.colab||'').toLowerCase().includes(q)||(c.re||'').toLowerCase().includes(q)));
+}
+
+// ── GERENCIAR ─────────────────────────────────────────────────────────────────
+function initGer(){
+  document.getElementById('gerMes').value=mesStr;
+  if(dadosRateio.length){
+    document.getElementById('ger-sem-dados').style.display='none';
+    document.getElementById('ger-com-dados').style.display='block';
+    if(!gerDados.length||gerDados.length!==dadosRateio.length) gerProporcional();
+    else renderGerLista();
+  } else {
+    document.getElementById('ger-sem-dados').style.display='block';
+    document.getElementById('ger-com-dados').style.display='none';
+  }
+}
+
+function renderGerLista(){
+  document.getElementById('gerCCLista').innerHTML=gerDados.map((r,i)=>`
+    <div class="ger-cc-item ${r.ativo?'':'inativo'}" id="gci-${i}">
+      <input type="checkbox" ${r.ativo?'checked':''} onchange="gerToggle(${i},this.checked)">
+      <span class="cc-cod">${esc(r.dept)}</span>
+      <div><div class="cc-nome-cell" title="${esc(r.nome||'')}">${esc(r.nome||'—')}</div><div class="pct-bar-wrap"><div class="pct-bar" id="pbar-${i}" style="width:${Math.min(r.pct,100)}%"></div></div></div>
+      <span class="cc-qtd-cell">${r.qtd.toLocaleString('pt-BR')}</span>
+      <input class="ger-cc-pct" type="number" id="gpct-${i}" value="${r.pct.toFixed(2)}" min="0" max="100" step="0.01" ${r.ativo?'':'disabled'} oninput="gerEditPct(${i},this.value)">
+    </div>`).join('');
+  atualizarTotalPct();
+}
+
+function gerToggle(i,v){ gerDados[i].ativo=v; document.getElementById('gci-'+i).className='ger-cc-item '+(v?'':'inativo'); document.getElementById('gpct-'+i).disabled=!v; gerProporcional(); }
+function gerEditPct(i,v){ gerDados[i].pct=parseFloat(v)||0; document.getElementById('pbar-'+i).style.width=Math.min(gerDados[i].pct,100)+'%'; atualizarTotalPct(); }
+function recalcGerBar(){ atualizarTotalPct(); }
+
+function atualizarTotalPct(){
+  const total=gerDados.filter(r=>r.ativo).reduce((s,r)=>s+r.pct,0);
+  const el=document.getElementById('gerTotalPct'), bar=document.getElementById('gerTotalBar'), al=document.getElementById('gerPctAlerta');
+  el.textContent=total.toFixed(2)+'%';
+  bar.style.width=Math.min(total,100)+'%';
+  const diff=Math.abs(total-100);
+  if(diff<0.05){ el.style.color='var(--verde)'; bar.style.background='var(--verde)'; al.className='pct-alerta ok'; al.textContent='✔ Total = 100% — rateio equilibrado.'; al.style.display='block'; }
+  else if(total>100){ el.style.color='var(--verm)'; bar.style.background='var(--verm)'; al.className='pct-alerta err'; al.textContent=`⚠ Total = ${total.toFixed(2)}% — ultrapassa 100% em ${(total-100).toFixed(2)}%.`; al.style.display='block'; }
+  else { el.style.color='#b45a00'; bar.style.background='#f59e0b'; al.className='pct-alerta warn'; al.textContent=`⚠ Total = ${total.toFixed(2)}% — faltam ${(100-total).toFixed(2)}%.`; al.style.display='block'; }
+}
+
+function gerSelecionarTodos(v){ gerDados.forEach((_,i)=>{gerDados[i].ativo=v;}); gerProporcional(); }
+function gerIgualarPct(){ const at=gerDados.filter(r=>r.ativo); if(!at.length)return; const p=parseFloat((100/at.length).toFixed(4)); gerDados.forEach(r=>{if(r.ativo)r.pct=p;}); renderGerLista(); }
+function gerProporcional(){
+  if(!gerDados.length) gerDados=dadosRateio.map(r=>({...r,ativo:true,pct:0}));
+  const at=gerDados.filter(r=>r.ativo), tq=at.reduce((s,r)=>s+r.qtd,0);
+  gerDados.forEach(r=>{r.pct=r.ativo&&tq>0?parseFloat((r.qtd/tq*100).toFixed(4)):0;});
+  renderGerLista();
+}
+
+// ── VERIFICAÇÕES ──────────────────────────────────────────────────────────────
+function rodarVerificacoes(ativos,valorTotal){
+  const erros=[],avisos=[],infos=[];
+  const tp=ativos.reduce((s,r)=>s+r.pct,0);
+  if(Math.abs(tp-100)<0.05) infos.push(`✔ Percentuais = 100% (${tp.toFixed(2)}%)`);
+  else if(tp>100) erros.push(`✖ Percentuais = ${tp.toFixed(2)}% — ultrapassam 100% em ${(tp-100).toFixed(2)}%`);
+  else erros.push(`✖ Percentuais = ${tp.toFixed(2)}% — faltam ${(100-tp).toFixed(2)}%`);
+
+  const semAtivos=ativos.filter(r=>r.qtd===0);
+  if(semAtivos.length) avisos.push(`⚠ ${semAtivos.length} centro(s) sem colaboradores: ${semAtivos.map(r=>r.dept).join(', ')}`);
+  else infos.push('✔ Todos os centros têm colaboradores');
+
+  const zerados=ativos.filter(r=>r.pct===0);
+  if(zerados.length) avisos.push(`⚠ ${zerados.length} centro(s) com % = 0 (receberão R$ 0,00): ${zerados.map(r=>r.dept).join(', ')}`);
+  else infos.push('✔ Nenhum centro zerado');
+
+  if(dadosBrutos.length){
+    const reMap={}; dadosBrutos.forEach(c=>{if(c.re){reMap[c.re]=(reMap[c.re]||0)+1;}});
+    const dups=Object.entries(reMap).filter(([,v])=>v>1);
+    if(dups.length) avisos.push(`⚠ ${dups.length} matrícula(s) duplicada(s): ${dups.slice(0,5).map(([k])=>k).join(', ')}${dups.length>5?'...':''}`);
+    else infos.push('✔ Nenhuma matrícula duplicada');
+  }
+
+  if(!valorTotal||valorTotal<=0) erros.push('✖ Valor total não informado');
+  else infos.push(`✔ Valor total: ${brl(valorTotal)}`);
+
+  return{erros,avisos,infos,tp};
+}
+
+function renderVerificacoes(res){
+  const el=document.getElementById('gerVerificacoes');
+  el.innerHTML=[
+    ...res.erros.map(e=>`<div class="verif-item" style="color:#cc0000">${e}</div>`),
+    ...res.avisos.map(a=>`<div class="verif-item" style="color:#b45a00">${a}</div>`),
+    ...res.infos.map(i=>`<div class="verif-item" style="color:#1a6b38">${i}</div>`),
+  ].join('');
+  el.className='verif-bloco';
+  el.style.display='block';
+  el.style.background=res.erros.length?'#fff0f0':res.avisos.length?'#fffbf0':'#f0fff5';
+  el.style.border=`1px solid ${res.erros.length?'#ffcccc':res.avisos.length?'#ffe082':'#b3e6c5'}`;
+}
+
+function calcularGer(){
+  if(!gerDados.length){toast('Carregue uma planilha primeiro.','err');return;}
+  const valorTotal=parseFloat(document.getElementById('gerValorTotal').value)||0;
+  const ativos=gerDados.filter(r=>r.ativo);
+  if(!ativos.length){toast('Selecione pelo menos um centro.','err');return;}
+  const verif=rodarVerificacoes(ativos,valorTotal);
+  renderVerificacoes(verif);
+  if(verif.erros.length){ document.getElementById('gerVerificacoes').scrollIntoView({behavior:'smooth',block:'start'}); return; }
+  if(verif.avisos.length){ if(!confirm(`${verif.avisos.length} aviso(s):\n\n${verif.avisos.join('\n')}\n\nContinuar?`)) return; }
+
+  gerResultDados=ativos.map(r=>{ const vCC=parseFloat((valorTotal*(r.pct/100)).toFixed(2)), vCol=r.qtd>0?parseFloat((vCC/r.qtd).toFixed(2)):0; return{...r,valorCC:vCC,valorColab:vCol}; });
+  const desc=document.getElementById('gerDesc').value||'Rateio', mes=document.getElementById('gerMes').value||'';
+  document.getElementById('gerResultDesc').textContent=`${desc}${mes?' — '+mes:''}`;
+  const tq=gerResultDados.reduce((s,r)=>s+r.qtd,0), tv=gerResultDados.reduce((s,r)=>s+r.valorCC,0);
+  document.getElementById('gerStats').innerHTML=`
+    <div class="stat"><div class="v">${gerResultDados.length}</div><div class="l">Centros</div></div>
+    <div class="stat"><div class="v">${tq.toLocaleString('pt-BR')}</div><div class="l">Colaboradores</div></div>
+    <div class="stat"><div class="v red">${brl(valorTotal)}</div><div class="l">Total rateado</div></div>
+    <div class="stat"><div class="v" style="color:var(--verde)">${brl(tv)}</div><div class="l">Distribuído</div></div>`;
+  document.getElementById('gerTBody').innerHTML=gerResultDados.map(r=>`
+    <tr onclick="abrirGerDrawer('${esc(r.dept)}')" style="cursor:pointer">
+      <td><span class="badge">${esc(r.dept)}</span></td>
+      <td>${esc(r.nome||'—')}</td>
+      <td class="r">${r.qtd.toLocaleString('pt-BR')}</td>
+      <td class="r"><strong>${r.pct.toFixed(2)}%</strong></td>
+      <td class="r val">${brl(r.valorCC)}</td>
+      <td class="r" style="color:var(--cinza)">${brl(r.valorColab)}</td>
+      <td><button class="btn-sm" onclick="event.stopPropagation();abrirGerDrawer('${esc(r.dept)}')">Ver</button></td>
+    </tr>`).join('');
+  document.getElementById('gerTFoot').innerHTML=`<tr><td colspan="2">TOTAL GERAL</td><td class="r">${tq.toLocaleString('pt-BR')}</td><td class="r">${ativos.reduce((s,r)=>s+r.pct,0).toFixed(2)}%</td><td class="r">${brl(tv)}</td><td></td><td></td></tr>`;
+  document.getElementById('gerResultado').style.display='block';
+  document.getElementById('gerResultado').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function abrirGerDrawer(dept){
+  const cc=gerResultDados.find(r=>r.dept===dept); if(!cc)return;
+  gdDrawerDados=cc.colabs||[];
+  document.getElementById('gerDrawerTitulo').textContent=`${cc.dept} — ${cc.nome||'Setor'}`;
+  document.getElementById('gdQtd').textContent=cc.qtd.toLocaleString('pt-BR');
+  document.getElementById('gdValorCC').textContent=brl(cc.valorCC);
+  document.getElementById('gdValorColab').textContent=brl(cc.valorColab);
+  document.getElementById('gdBusca').value='';
+  renderGdDrawer(gdDrawerDados,cc.valorColab);
+  document.getElementById('gerDrawerOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function fecharGerDrawer(e){ if(e&&e.target!==document.getElementById('gerDrawerOverlay'))return; document.getElementById('gerDrawerOverlay').classList.remove('open'); document.body.style.overflow=''; }
+function renderGdDrawer(lista,vc){
+  document.getElementById('gdLista').innerHTML=lista.length?lista.map(c=>`
+    <div class="colab-rateio-item">
+      <div><div class="cn">${esc(c.colab||'—')}</div><div class="ci">${c.re?'Mat. '+esc(c.re)+' · ':''} ${esc(c.cargo||'')} <span class="badge ${c.sit}" style="font-size:10px">${c.sit}</span></div></div>
+      <div class="cv">${brl(vc)}</div>
+    </div>`).join(''):'<div class="empty"><p>Nenhum colaborador.</p></div>';
+}
+function filtrarGdDrawer(){
+  const cc=gerResultDados.find(r=>document.getElementById('gerDrawerTitulo').textContent.startsWith(r.dept));
+  const vc=cc?cc.valorColab:0, q=document.getElementById('gdBusca').value.toLowerCase();
+  renderGdDrawer(gdDrawerDados.filter(c=>(c.colab||'').toLowerCase().includes(q)||(c.re||'').toLowerCase().includes(q)||(c.cargo||'').toLowerCase().includes(q)),vc);
+}
+
+// ── FIREBASE — SALVAR / CARREGAR ──────────────────────────────────────────────
+async function salvarRateioFirebase(){
+  if(!fbReady){toast('Firebase não conectado.','err');return;}
+  if(!gerResultDados.length){toast('Calcule o rateio primeiro.','err');return;}
+  const desc=document.getElementById('gerDesc').value||'Rateio sem nome';
+  const mes=document.getElementById('gerMes').value||mesStr;
+  const valorTotal=parseFloat(document.getElementById('gerValorTotal').value)||0;
+  const {db,collection,doc,setDoc,serverTimestamp}=window._fb;
+  const id=`${mes}_${Date.now()}`;
+  const payload={
+    id, desc, mes, valorTotal,
+    criadoEm: serverTimestamp(),
+    linhas: gerResultDados.map(r=>({dept:r.dept,nome:r.nome,qtd:r.qtd,pct:r.pct,valorCC:r.valorCC,valorColab:r.valorColab})),
+    totalColabs: gerResultDados.reduce((s,r)=>s+r.qtd,0),
+    totalValor: gerResultDados.reduce((s,r)=>s+r.valorCC,0),
+  };
+  try{
+    await setDoc(doc(collection(db,'rateios'),id),payload);
+    toast('✔ Rateio salvo no histórico!','ok');
+  }catch(e){ toast('Erro ao salvar: '+e.message,'err'); }
+}
+
+async function carregarHistorico(){
+  const el=document.getElementById('histLista');
+  if(!fbReady){ el.innerHTML='<div class="hist-empty">⚠️ Firebase não conectado.</div>'; return; }
+  el.innerHTML='<div class="hist-empty">⏳ Carregando...</div>';
+  try{
+    const {db,collection,getDocs,query,orderBy}=window._fb;
+    const snap=await getDocs(query(collection(db,'rateios'),orderBy('criadoEm','desc')));
+    histTodos=snap.docs.map(d=>({...d.data(),_id:d.id}));
+    filtrarHistorico();
+  }catch(e){ el.innerHTML=`<div class="hist-empty">Erro: ${e.message}</div>`; }
+}
+
+function filtrarHistorico(){
+  const filtro=document.getElementById('histFiltroMes').value;
+  const lista=filtro?histTodos.filter(h=>h.mes===filtro):histTodos;
+  const el=document.getElementById('histLista');
+  if(!lista.length){ el.innerHTML='<div class="hist-empty">Nenhum rateio salvo ainda.</div>'; return; }
+  el.innerHTML=lista.map(h=>{
+    const dt=h.criadoEm?.toDate?h.criadoEm.toDate():new Date();
+    return`<div class="hist-card">
+      <div>
+        <div class="hc-desc">${esc(h.desc)}</div>
+        <div class="hc-meta">${h.mes||'—'} · ${h.totalColabs||0} colaboradores · ${h.linhas?.length||0} centros · salvo em ${dt.toLocaleDateString('pt-BR')} ${dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div class="hc-valor">${brl(h.totalValor||0)}</div>
+        <div class="hc-acoes">
+          <button class="btn-sm" onclick="reabrirRateio('${h._id}')">↩ Reabrir</button>
+          <button class="btn btn-azul" onclick="exportarHistModeloAbility('${h._id}')" style="font-size:11px;padding:6px 12px">📥 Modelo</button>
+          <button class="btn-del-sm" onclick="excluirRateio('${h._id}')">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function reabrirRateio(id){
+  const h=histTodos.find(x=>x._id===id); if(!h)return;
+  gerResultDados=h.linhas.map(r=>({...r,colabs:[]}));
+  document.getElementById('gerDesc').value=h.desc||'';
+  document.getElementById('gerMes').value=h.mes||mesStr;
+  document.getElementById('gerValorTotal').value=h.valorTotal||0;
+  const desc=h.desc, mes=h.mes||'';
+  document.getElementById('gerResultDesc').textContent=`${desc}${mes?' — '+mes:''}`;
+  const tq=gerResultDados.reduce((s,r)=>s+r.qtd,0), tv=gerResultDados.reduce((s,r)=>s+r.valorCC,0);
+  document.getElementById('gerStats').innerHTML=`
+    <div class="stat"><div class="v">${gerResultDados.length}</div><div class="l">Centros</div></div>
+    <div class="stat"><div class="v">${tq.toLocaleString('pt-BR')}</div><div class="l">Colaboradores</div></div>
+    <div class="stat"><div class="v red">${brl(h.valorTotal||0)}</div><div class="l">Total rateado</div></div>
+    <div class="stat"><div class="v" style="color:var(--verde)">${brl(tv)}</div><div class="l">Distribuído</div></div>`;
+  document.getElementById('gerTBody').innerHTML=gerResultDados.map(r=>`
+    <tr><td><span class="badge">${esc(r.dept)}</span></td><td>${esc(r.nome||'—')}</td>
+    <td class="r">${r.qtd.toLocaleString('pt-BR')}</td><td class="r"><strong>${r.pct.toFixed(2)}%</strong></td>
+    <td class="r val">${brl(r.valorCC)}</td><td class="r" style="color:var(--cinza)">${brl(r.valorColab)}</td><td></td></tr>`).join('');
+  document.getElementById('gerTFoot').innerHTML=`<tr><td colspan="2">TOTAL GERAL</td><td class="r">${tq.toLocaleString('pt-BR')}</td><td class="r">100%</td><td class="r">${brl(tv)}</td><td></td><td></td></tr>`;
+  document.getElementById('gerResultado').style.display='block';
+  trocarAba('ger');
+  setTimeout(()=>document.getElementById('gerResultado').scrollIntoView({behavior:'smooth',block:'start'}),200);
+  toast('↩ Rateio reaberto!','info');
+}
+
+async function excluirRateio(id){
+  if(!confirm('Excluir este rateio do histórico?'))return;
+  const {db,collection,doc,deleteDoc}=window._fb;
+  try{ await deleteDoc(doc(collection(db,'rateios'),id)); histTodos=histTodos.filter(h=>h._id!==id); filtrarHistorico(); toast('Rateio excluído.','info'); }
+  catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+function exportarHistModeloAbility(id){
+  const h=histTodos.find(x=>x._id===id); if(!h)return;
+  exportarModeloAbility(h.linhas.map(r=>({dept:r.dept,nome:r.nome,valor:r.valorCC})),h.desc,h.mes);
+}
+
+// ── CONFIGS LOCAIS ────────────────────────────────────────────────────────────
+function salvarConfigs(){
+  try{ localStorage.setItem('rateio_cfg',JSON.stringify({valorUnit:document.getElementById('valorUnit').value,filtroSit:document.getElementById('filtroSit').value,gerValorTotal:document.getElementById('gerValorTotal').value})); }catch(e){}
+}
+function carregarConfigs(){
+  try{
+    const cfg=JSON.parse(localStorage.getItem('rateio_cfg')||'{}');
+    if(cfg.valorUnit) document.getElementById('valorUnit').value=cfg.valorUnit;
+    if(cfg.filtroSit) document.getElementById('filtroSit').value=cfg.filtroSit;
+    if(cfg.gerValorTotal) document.getElementById('gerValorTotal').value=cfg.gerValorTotal;
+  }catch(e){}
+}
+
+// ── PROPORCIONAL ──────────────────────────────────────────────────────────────
+let itemId=0, propCCId=0;
+function initProp(){ atualizarInfoPlanilha(); }
+function addItem(){
+  const id='item'+(itemId++);
+  const div=document.createElement('div'); div.className='item-linha'; div.id=id;
+  div.innerHTML=`<input type="text" placeholder="Ex: PCMSO, Exames Admissionais..."><input type="number" placeholder="0,00" min="0" step="0.01" style="text-align:right"><button class="btn-del" onclick="document.getElementById('${id}').remove()">×</button>`;
+  document.getElementById('itemLinhas').appendChild(div);
+}
+function addPropCC(){
+  const id='pcc'+(propCCId++);
+  const div=document.createElement('div'); div.className='propCC-linha'; div.id=id;
+  div.style.cssText='display:grid;grid-template-columns:120px 1fr 105px 30px;gap:7px;align-items:center;';
+  div.innerHTML=`<input type="text" placeholder="Cód." style="padding:8px 10px;border:1.5px solid var(--borda);border-radius:6px;font-size:12px;font-family:var(--fonte);width:100%;"><input type="text" placeholder="Nome do setor" style="padding:8px 10px;border:1.5px solid var(--borda);border-radius:6px;font-size:12px;font-family:var(--fonte);width:100%;"><input type="number" placeholder="Qtd" min="0" style="padding:8px 10px;border:1.5px solid var(--borda);border-radius:6px;font-size:12px;font-family:var(--fonte);width:100%;text-align:center;"><button class="btn-del" onclick="document.getElementById('${id}').remove()">×</button>`;
+  document.getElementById('propCCLinhas').appendChild(div);
+}
+function selecionarFonte(f){
+  propFonte=f;
+  ['planilha','digitar'].forEach(x=>{ const b=document.getElementById('fBtn-'+x); b.style.borderColor=x===f?'var(--verm)':'var(--borda)'; b.style.color=x===f?'var(--verm)':'inherit'; });
+  document.getElementById('fonte-planilha').style.display=f==='planilha'?'block':'none';
+  document.getElementById('fonte-digitar').style.display=f==='digitar'?'block':'none';
+  if(f==='planilha') atualizarInfoPlanilha();
+}
+function atualizarInfoPlanilha(){
+  const el=document.getElementById('prop-planilha-info');
+  if(!dadosRateio.length){ el.innerHTML='⚠️ Carregue a planilha na aba <strong>Upload</strong>.'; el.style.color='#aa6600'; el.style.background='#fffbf0'; el.style.borderColor='#f5d080'; }
+  else { const t=dadosRateio.reduce((s,r)=>s+r.qtd,0); el.innerHTML=`✔ <strong>${dadosRateio.length} centros</strong> com <strong>${t.toLocaleString('pt-BR')} colaboradores</strong> prontos.`; el.style.color='#1a6b38'; el.style.background='#f0fff5'; el.style.borderColor='#b3e6c5'; }
+}
+function calcularProp(){
+  const itens=[...document.querySelectorAll('.item-linha')].map(l=>{const ins=l.querySelectorAll('input');return{desc:ins[0].value.trim(),valor:parseFloat(ins[1].value)||0};}).filter(i=>i.desc&&i.valor>0);
+  if(!itens.length){toast('Adicione pelo menos um item com valor.','err');return;}
+  let centros=[];
+  if(propFonte==='planilha'){
+    if(!dadosRateio.length){toast('Carregue a planilha primeiro.','err');return;}
+    centros=dadosRateio.map(r=>({cod:r.dept,nome:r.nome,qtd:r.qtd}));
+  } else {
+    centros=[...document.querySelectorAll('.propCC-linha')].map(l=>{const ins=l.querySelectorAll('input');return{cod:ins[0].value.trim(),nome:ins[1].value.trim(),qtd:parseInt(ins[2].value)||0};}).filter(c=>c.cod&&c.qtd>0);
+    if(!centros.length){toast('Adicione pelo menos um centro com quantidade.','err');return;}
+  }
+  const totalColabs=centros.reduce((s,c)=>s+c.qtd,0);
+  propDados={itens,centros,totalColabs,linhas:centros.map(c=>{const pct=totalColabs>0?c.qtd/totalColabs:0;const porItem=itens.map(i=>({desc:i.desc,valor:parseFloat((i.valor*pct).toFixed(2))}));return{...c,pct,porItem,totalLinha:porItem.reduce((s,x)=>s+x.valor,0)};})};
+  renderProp();
+  document.getElementById('propResultado').style.display='block';
+  document.getElementById('propResultado').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderProp(){
+  const{itens,centros,totalColabs,linhas}=propDados, totalGeral=itens.reduce((s,i)=>s+i.valor,0);
+  document.getElementById('propStats').innerHTML=`<div class="stat"><div class="v">${centros.length}</div><div class="l">Centros</div></div><div class="stat"><div class="v">${totalColabs.toLocaleString('pt-BR')}</div><div class="l">Colaboradores</div></div><div class="stat"><div class="v">${itens.length}</div><div class="l">Itens</div></div><div class="stat"><div class="v red">${brl(totalGeral)}</div><div class="l">Total</div></div>`;
+  const thIt=itens.map(i=>`<th title="${esc(i.desc)}">${esc(i.desc.length>16?i.desc.slice(0,14)+'…':i.desc)}</th>`).join('');
+  const tbody=linhas.map(l=>`<tr><td><span class="badge">${esc(l.cod)}</span></td><td>${esc(l.nome||'—')}</td><td>${l.qtd.toLocaleString('pt-BR')}<span class="pct-pill">${(l.pct*100).toFixed(1)}%</span></td>${l.porItem.map(x=>`<td>${brl(x.valor)}</td>`).join('')}<td style="font-weight:800;color:var(--verm)">${brl(l.totalLinha)}</td></tr>`).join('');
+  document.getElementById('propTabelaWrap').innerHTML=`<table><thead><tr><th style="text-align:left">Cód.</th><th style="text-align:left">Setor</th><th>Qtd./%</th>${thIt}<th>Total</th></tr></thead><tbody>${tbody}</tbody><tfoot><tr><td colspan="2">TOTAL GERAL</td><td>${totalColabs.toLocaleString('pt-BR')}</td>${itens.map(i=>`<td>${brl(i.valor)}</td>`).join('')}<td>${brl(totalGeral)}</td></tr></tfoot></table>`;
+}
+
+// ── BUSCA COLABORADOR ─────────────────────────────────────────────────────────
+function buscarColab(){
+  const q=document.getElementById('inputBusca').value.trim().toLowerCase();
+  const info=document.getElementById('buscaInfo'), res=document.getElementById('buscaResult');
+  if(!dadosBrutos.length){res.innerHTML='<div class="empty"><div class="ei">🔍</div><p>Carregue a planilha na aba Upload primeiro.</p></div>';info.textContent='';return;}
+  if(q.length<2){res.innerHTML='<div class="empty"><div class="ei">🔍</div><p>Digite pelo menos 2 caracteres.</p></div>';info.textContent='';return;}
+  const v=parseFloat(document.getElementById('valorUnit').value)||1.28;
+  const enc=dadosBrutos.filter(c=>(c.colab||'').toLowerCase().includes(q)||(c.re||'').toLowerCase().includes(q)).slice(0,50);
+  info.textContent=enc.length?`${enc.length} resultado(s)`:'';
+  res.innerHTML=enc.length?enc.map(c=>`
+    <div style="border:1px solid var(--borda);border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;background:var(--branco)">
+      <div><div style="font-weight:800;font-size:13px">${esc(c.colab||'—')}</div><div style="font-size:11px;color:var(--cinza);margin-top:2px">${c.re?'Mat. '+esc(c.re)+' · ':''}${esc(c.cargo||'')} · <span class="badge ${c.sit}">${c.sit}</span></div></div>
+      <div style="text-align:right"><div style="font-family:monospace;font-size:18px;font-weight:800;color:var(--verm)">${esc(c.dept)}</div><div style="font-size:11px;color:var(--cinza)">${esc(c.nome||'—')}</div><div style="font-size:12px;font-weight:700;color:var(--verde)">${brl(v)}</div></div>
+    </div>`).join(''):`<div class="empty"><div class="ei">😕</div><p>Nenhum resultado para "<strong>${esc(q)}</strong>".</p></div>`;
+}
+
+// ── MANUAL ────────────────────────────────────────────────────────────────────
+let linhaId=0;
+function addLinha(){
+  const id='ml'+(linhaId++);
+  const div=document.createElement('div'); div.className='manual-linha'; div.id=id;
+  div.innerHTML=`<input type="text" placeholder="Cód." oninput="calcularManual()"><input type="text" placeholder="Nome do setor" oninput="calcularManual()"><input type="number" placeholder="Qtd" min="0" oninput="calcularManual()" style="text-align:center"><button class="btn-del" onclick="removerLinha('${id}')">×</button>`;
+  document.getElementById('manualLinhas').appendChild(div);
+}
+function removerLinha(id){document.getElementById(id)?.remove();calcularManual();}
+function calcularManual(){
+  const v=parseFloat(document.getElementById('mValor').value)||1.28, res=document.getElementById('manualRes');
+  const linhas=[...document.querySelectorAll('.manual-linha')].map(l=>{const ins=l.querySelectorAll('input');return{cod:ins[0].value.trim(),nome:ins[1].value.trim(),qtd:parseInt(ins[2].value)||0};}).filter(r=>r.cod&&r.qtd>0);
+  if(!linhas.length){res.style.display='none';return;}
+  const tq=linhas.reduce((s,r)=>s+r.qtd,0), tv=linhas.reduce((s,r)=>s+r.qtd*v,0);
+  document.getElementById('mTotalVal').textContent=brl(tv);
+  document.getElementById('mTotalQtd').textContent=tq.toLocaleString('pt-BR');
+  document.getElementById('mTabBody').innerHTML=linhas.map(r=>`<tr style="border-bottom:1px solid #333"><td style="padding:6px 7px;font-family:monospace;font-weight:700">${esc(r.cod)}</td><td style="padding:6px 7px;color:#ccc">${esc(r.nome||'—')}</td><td style="padding:6px 7px;text-align:right">${r.qtd}</td><td style="padding:6px 7px;text-align:right;color:#4caf50;font-weight:700">${brl(r.qtd*v)}</td></tr>`).join('');
+  res.style.display='block';
+}
+
+// ── EXPORTAR MODELO ABILITY ───────────────────────────────────────────────────
+function exportarModeloAbility(linhas, descParam, mesParam){
+  if(!linhas||!linhas.length)return;
+  const desc=descParam||document.getElementById('gerDesc')?.value||'Rateio';
+  const mes=mesParam||document.getElementById('gerMes')?.value||'';
+  const COR_H='FF0E2841', COR_B='FFFFFFFF', COR_C='FFF2F2F2', COR_T='FF1A1A1A', COR_WF='FFFFFFFF';
+  const hsty=(bold,sz)=>({font:{name:'Aptos Narrow',bold,sz,color:{rgb:COR_WF}},fill:{patternType:'solid',fgColor:{rgb:COR_H}},border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}},alignment:{horizontal:'left',vertical:'center'}});
+  const dstyA=(alt)=>({font:{name:'Arial',sz:10,color:{rgb:COR_T}},fill:{patternType:'solid',fgColor:{rgb:alt?COR_C:COR_B}},border:{top:{style:'thin',color:{rgb:'FFD0D0D0'}},bottom:{style:'thin',color:{rgb:'FFD0D0D0'}},left:{style:'thin',color:{rgb:'FFD0D0D0'}},right:{style:'thin',color:{rgb:'FFD0D0D0'}}},alignment:{horizontal:'center',vertical:'center'},numFmt:'0'});
+  const dstyB=(alt)=>({...dstyA(alt),alignment:{horizontal:'right',vertical:'center'},numFmt:'#,##0.00'});
+  const tsty=(col)=>({font:{name:'Aptos Narrow',bold:true,sz:11,color:{rgb:COR_WF}},fill:{patternType:'solid',fgColor:{rgb:COR_H}},border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}},alignment:{horizontal:col==='A'?'left':'right',vertical:'center'},numFmt:col==='A'?'@':'#,##0.00'});
+  const data=[['RATEIO DE CUSTOS — ABILITY',''],[ `${desc}${mes?' | '+mes:''}`,'' ],['Centro de custo','Valor'],...linhas.map(r=>[Number(r.dept)||r.dept, r.valor??r.valorCC??0]),['TOTAL GERAL',linhas.reduce((s,r)=>s+(r.valor??r.valorCC??0),0)]];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:18},{wch:18}];
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:1}},{s:{r:1,c:0},e:{r:1,c:1}}];
+  const ss=(r,c,s)=>{const a=XLSX.utils.encode_cell({r,c});if(!ws[a])ws[a]={v:'',t:'s'};ws[a].s=s;};
+  ss(0,0,hsty(true,12));ss(0,1,hsty(true,12));ss(1,0,hsty(false,10));ss(1,1,hsty(false,10));ss(2,0,hsty(true,11));ss(2,1,hsty(true,11));
+  linhas.forEach((_,i)=>{ss(3+i,0,dstyA(i%2===1));ss(3+i,1,dstyB(i%2===1));const ab=XLSX.utils.encode_cell({r:3+i,c:1});if(ws[ab])ws[ab].t='n';});
+  const tr=3+linhas.length; ss(tr,0,tsty('A'));ss(tr,1,tsty('B'));const atb=XLSX.utils.encode_cell({r:tr,c:1});if(ws[atb])ws[atb].t='n';
+  ws['!rows']=[{hpt:16},{hpt:12},{hpt:14},...linhas.map(()=>({hpt:13})),{hpt:14}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Template');
+  XLSX.writeFile(wb,`${desc.replace(/[^a-zA-Z0-9]/g,'_')}${mes?'_'+mes:''}_MAST.xlsx`,{cellStyles:true,bookSST:false});
+}
+
+// ── EXPORTS GENÉRICOS ─────────────────────────────────────────────────────────
+function exportarExcel(){
+  if(!dadosRateio.length)return;
+  const rows=dadosRateio.map(r=>({'Cód.':r.dept,'Setor':r.nome,'Qtd.':r.qtd,'Valor (R$)':r.valor}));
+  rows.push({'Cód.':'TOTAL','Setor':'','Qtd.':dadosRateio.reduce((s,r)=>s+r.qtd,0),'Valor (R$)':dadosRateio.reduce((s,r)=>s+r.valor,0)});
+  const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'RATEIO');
+  XLSX.writeFile(wb,`RATEIO_${document.getElementById('mesRef').value||'rateio'}.xlsx`);
+}
+function exportarCSV(){
+  if(!dadosRateio.length)return;
+  const rows=['Cód.;Setor;Qtd.;Valor (R$)',...dadosRateio.map(r=>`${r.dept};${r.nome};${r.qtd};${r.valor.toFixed(2).replace('.',',')}`),`TOTAL;;${dadosRateio.reduce((s,r)=>s+r.qtd,0)};${dadosRateio.reduce((s,r)=>s+r.valor,0).toFixed(2).replace('.',',')}`];
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='RATEIO.csv';a.click();
+}
+function exportarGerCSV(){
+  if(!gerResultDados.length)return;
+  const desc=document.getElementById('gerDesc').value||'Rateio';
+  const rows=['Cód.;Setor;Qtd.;% Aplicado;Valor (R$);R$/Colab',...gerResultDados.map(r=>`${r.dept};${r.nome||''};${r.qtd};${r.pct.toFixed(2)};${r.valorCC.toFixed(2).replace('.',',')};${r.valorColab.toFixed(2).replace('.',',')}`)];
+  rows.push(`TOTAL;;${gerResultDados.reduce((s,r)=>s+r.qtd,0)};${gerResultDados.reduce((s,r)=>s+r.pct,0).toFixed(2)};${gerResultDados.reduce((s,r)=>s+r.valorCC,0).toFixed(2).replace('.',',')};`);
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${desc.replace(/[^a-zA-Z0-9]/g,'_')}.csv`;a.click();
+}
+function exportarPropExcel(){
+  if(!propDados.linhas)return;
+  const{itens,linhas,totalColabs}=propDados, tg=itens.reduce((s,i)=>s+i.valor,0);
+  const rows=linhas.map(l=>{const o={'Cód.':l.cod,'Setor':l.nome,'Qtd.':l.qtd};l.porItem.forEach(x=>{o[x.desc]=x.valor;});o['TOTAL']=l.totalLinha;return o;});
+  rows.push({'Cód.':'TOTAL','Setor':'','Qtd.':totalColabs,...Object.fromEntries(itens.map(i=>[i.desc,i.valor])),TOTAL:tg});
+  const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'PROP');XLSX.writeFile(wb,'RATEIO_PROPORCIONAL.xlsx');
+}
+function exportarPropCSV(){
+  if(!propDados.linhas)return;
+  const{itens,linhas,totalColabs}=propDados, tg=itens.reduce((s,i)=>s+i.valor,0);
+  const cols=['Cód.','Setor','Qtd.',...itens.map(i=>i.desc),'TOTAL'];
+  const rows=[cols.join(';'),...linhas.map(l=>[l.cod,l.nome,l.qtd,...l.porItem.map(x=>x.valor.toFixed(2).replace('.',',')),l.totalLinha.toFixed(2).replace('.',',')].join(';'))];
+  rows.push(['TOTAL','',totalColabs,...itens.map(i=>i.valor.toFixed(2).replace('.',',')),tg.toFixed(2).replace('.',',')].join(';'));
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='RATEIO_PROPORCIONAL.csv';a.click();
+}
+function exportarManualExcel(){
+  const v=parseFloat(document.getElementById('mValor').value)||1.28;
+  const linhas=[...document.querySelectorAll('.manual-linha')].map(l=>{const ins=l.querySelectorAll('input');return{cod:ins[0].value.trim(),nome:ins[1].value.trim(),qtd:parseInt(ins[2].value)||0};}).filter(r=>r.cod&&r.qtd>0);
+  if(!linhas.length)return;
+  const rows=linhas.map(r=>({'Cód.':r.cod,'Setor':r.nome,'Qtd.':r.qtd,'Valor (R$)':r.qtd*v}));
+  rows.push({'Cód.':'TOTAL','Setor':'','Qtd.':linhas.reduce((s,r)=>s+r.qtd,0),'Valor (R$)':linhas.reduce((s,r)=>s+r.qtd*v,0)});
+  const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'RATEIO');XLSX.writeFile(wb,'RATEIO_MANUAL.xlsx');
+}
+function exportarManualCSV(){
+  const v=parseFloat(document.getElementById('mValor').value)||1.28;
+  const linhas=[...document.querySelectorAll('.manual-linha')].map(l=>{const ins=l.querySelectorAll('input');return{cod:ins[0].value.trim(),nome:ins[1].value.trim(),qtd:parseInt(ins[2].value)||0};}).filter(r=>r.cod&&r.qtd>0);
+  if(!linhas.length)return;
+  const rows=['Cód.;Setor;Qtd.;Valor (R$)',...linhas.map(r=>`${r.cod};${r.nome};${r.qtd};${(r.qtd*v).toFixed(2).replace('.',',')}`),`TOTAL;;${linhas.reduce((s,r)=>s+r.qtd,0)};${linhas.reduce((s,r)=>s+r.qtd*v,0).toFixed(2).replace('.',',')}`];
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='RATEIO_MANUAL.csv';a.click();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function brl(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function alerta(msg,tipo){const el=document.getElementById('alerta');el.textContent=msg;el.className='alert '+tipo;el.style.display=msg?'block':'none';}
+function toast(msg,tipo='info'){
+  const el=document.getElementById('toast');el.textContent=msg;el.className='toast '+tipo+' show';
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
